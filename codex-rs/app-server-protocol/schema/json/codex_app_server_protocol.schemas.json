@@ -8534,6 +8534,21 @@
         },
         "type": "object"
       },
+      "MarketplaceLoadErrorInfo": {
+        "properties": {
+          "marketplacePath": {
+            "$ref": "#/definitions/v2/AbsolutePathBuf"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "marketplacePath",
+          "message"
+        ],
+        "type": "object"
+      },
       "McpAuthStatus": {
         "enum": [
           "unsupported",
@@ -9482,6 +9497,13 @@
             "default": [],
             "items": {
               "type": "string"
+            },
+            "type": "array"
+          },
+          "marketplaceLoadErrors": {
+            "default": [],
+            "items": {
+              "$ref": "#/definitions/v2/MarketplaceLoadErrorInfo"
             },
             "type": "array"
           },
