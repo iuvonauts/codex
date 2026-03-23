@@ -10,6 +10,7 @@ pub mod api_bridge;
 mod apply_patch;
 mod apps;
 mod arc_monitor;
+mod azure_auth;
 pub use codex_login as auth;
 mod auth_env_telemetry;
 mod client;

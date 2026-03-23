@@ -1,5 +1,36 @@
 use super::*;
 use pretty_assertions::assert_eq;
+use serial_test::serial;
+use std::env;
+use std::ffi::OsStr;
+
+struct EnvVarGuard {
+    key: &'static str,
+    original: Option<std::ffi::OsString>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: &OsStr) -> Self {
+        let original = env::var_os(key);
+        unsafe {
+            env::set_var(key, value);
+        }
+        Self { key, original }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        match self.original.take() {
+            Some(value) => unsafe {
+                env::set_var(self.key, value);
+            },
+            None => unsafe {
+                env::remove_var(self.key);
+            },
+        }
+    }
+}
 
 #[test]
 fn test_deserialize_ollama_model_provider_toml() {
@@ -120,4 +151,36 @@ supports_websockets = true
 
     let provider: ModelProviderInfo = toml::from_str(provider_toml).unwrap();
     assert_eq!(provider.websocket_connect_timeout_ms, Some(15_000));
+}
+
+#[test]
+#[serial]
+fn azure_provider_prefers_configured_env_key_over_cli_auth() {
+    let _api_key = EnvVarGuard::set("AZURE_OPENAI_API_KEY", OsStr::new("env-api-key"));
+
+    let provider = ModelProviderInfo {
+        name: "Azure".into(),
+        base_url: Some("https://example.cognitiveservices.azure.com/openai".into()),
+        env_key: Some("AZURE_OPENAI_API_KEY".into()),
+        env_key_instructions: None,
+        experimental_bearer_token: None,
+        wire_api: WireApi::Responses,
+        query_params: Some(maplit::hashmap! {
+            "api-version".to_string() => "2025-04-01-preview".to_string(),
+        }),
+        http_headers: None,
+        env_http_headers: None,
+        request_max_retries: None,
+        stream_max_retries: None,
+        stream_idle_timeout_ms: None,
+        websocket_connect_timeout_ms: None,
+        requires_openai_auth: false,
+        supports_websockets: false,
+    };
+
+    let token = provider
+        .configured_auth_token()
+        .expect("env-key auth should succeed");
+
+    assert_eq!(token, Some("env-api-key".to_string()));
 }
