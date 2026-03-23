@@ -9,6 +9,7 @@ pub mod api_bridge;
 mod apply_patch;
 mod apps;
 mod arc_monitor;
+mod azure_auth;
 mod auth_env_telemetry;
 mod client;
 mod client_common;
