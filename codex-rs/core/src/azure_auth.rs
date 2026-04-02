@@ -2,8 +2,8 @@ use crate::ModelProviderInfo;
 use crate::error::CodexErr;
 use crate::error::EnvVarError;
 use crate::error::Result;
+use codex_utils_azure_catalog::run_azure_cli_json;
 use serde::Deserialize;
-use std::process::Command;
 
 const AZURE_COGNITIVE_SERVICES_RESOURCE: &str = "https://cognitiveservices.azure.com";
 const DEFAULT_AZURE_ENV_KEY: &str = "AZURE_OPENAI_API_KEY";
@@ -19,41 +19,27 @@ pub(crate) fn azure_cli_bearer_token(provider: &ModelProviderInfo) -> Result<Opt
         return Ok(None);
     }
 
-    let output = Command::new("az")
-        .args([
+    let response: AzureCliAccessTokenResponse = run_azure_cli_json(
+        [
             "account",
             "get-access-token",
             "--resource",
             AZURE_COGNITIVE_SERVICES_RESOURCE,
             "--output",
             "json",
-        ])
-        .output()
-        .map_err(|err| {
-            azure_cli_auth_error(
-                provider,
-                format!("Unable to run `az account get-access-token`: {err}"),
-            )
-        })?;
+        ],
+        "Azure access token response",
+    )
+    .map_err(|detail| azure_cli_auth_error(provider, detail))?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        let detail = if stderr.is_empty() {
-            format!("Azure CLI exited with status {}", output.status)
-        } else {
-            format!("Azure CLI failed to provide a token: {stderr}")
-        };
-        return Err(azure_cli_auth_error(provider, detail));
-    }
-
-    parse_azure_cli_access_token(&output.stdout)
+    access_token_from_response(response)
         .map(Some)
         .map_err(|detail| azure_cli_auth_error(provider, detail))
 }
 
-fn parse_azure_cli_access_token(stdout: &[u8]) -> std::result::Result<String, String> {
-    let response = serde_json::from_slice::<AzureCliAccessTokenResponse>(stdout)
-        .map_err(|err| format!("Azure CLI returned invalid JSON: {err}"))?;
+fn access_token_from_response(
+    response: AzureCliAccessTokenResponse,
+) -> std::result::Result<String, String> {
     let access_token = response.access_token.trim();
     if access_token.is_empty() {
         return Err("Azure CLI returned an empty access token".to_string());
@@ -87,6 +73,7 @@ mod tests {
             env_key: Some("AZURE_OPENAI_API_KEY".into()),
             env_key_instructions: None,
             experimental_bearer_token: None,
+            auth: None,
             wire_api: crate::WireApi::Responses,
             query_params: None,
             http_headers: None,
@@ -102,9 +89,10 @@ mod tests {
 
     #[test]
     fn parses_access_token_from_azure_cli_output() {
-        let parsed =
-            parse_azure_cli_access_token(br#"{"accessToken":"azure-token","tokenType":"Bearer"}"#)
-                .expect("should parse access token");
+        let parsed = access_token_from_response(AzureCliAccessTokenResponse {
+            access_token: "azure-token".to_string(),
+        })
+        .expect("should parse access token");
         assert_eq!(parsed, "azure-token");
     }
 

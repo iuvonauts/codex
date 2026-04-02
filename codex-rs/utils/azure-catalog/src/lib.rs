@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use std::collections::HashSet;
 use std::process::Command;
 use url::Url;
@@ -30,8 +31,28 @@ pub fn resolve_openai_deployment_model_names_for_base_url(
     base_url: &str,
 ) -> Result<HashSet<String>, String> {
     let resource = resource_name_from_base_url(base_url)?;
-    let resource_group = find_azure_resource_group(resource.as_str())?;
-    list_azure_openai_deployments(resource.as_str(), resource_group.as_str())
+    let accounts: Vec<AzureAccountSummary> = run_azure_cli_json(
+        ["cognitiveservices", "account", "list", "--output", "json"],
+        "Azure resource list",
+    )?;
+    let resource_group = find_resource_group(resource.as_str(), &accounts)?;
+    let deployments: Vec<AzureDeploymentSummary> = run_azure_cli_json(
+        [
+            "cognitiveservices",
+            "account",
+            "deployment",
+            "list",
+            "-n",
+            resource.as_str(),
+            "-g",
+            resource_group.as_str(),
+            "--output",
+            "json",
+        ],
+        "Azure deployment list",
+    )?;
+
+    Ok(openai_model_names(deployments))
 }
 
 fn resource_name_from_base_url(base_url: &str) -> Result<String, String> {
@@ -58,14 +79,6 @@ fn resource_name_from_base_url(base_url: &str) -> Result<String, String> {
         .ok_or_else(|| format!("failed to infer Azure resource name from `{base_url}`"))
 }
 
-fn find_azure_resource_group(resource: &str) -> Result<String, String> {
-    let output = run_azure_cli(["cognitiveservices", "account", "list", "--output", "json"])?;
-    let accounts: Vec<AzureAccountSummary> = serde_json::from_slice(&output)
-        .map_err(|err| format!("failed to parse Azure resource list JSON: {err}"))?;
-
-    find_resource_group(resource, &accounts)
-}
-
 fn find_resource_group(resource: &str, accounts: &[AzureAccountSummary]) -> Result<String, String> {
     let matches: Vec<&AzureAccountSummary> = accounts
         .iter()
@@ -79,28 +92,6 @@ fn find_resource_group(resource: &str, accounts: &[AzureAccountSummary]) -> Resu
             "found multiple Azure resources named `{resource}`; select one manually instead"
         )),
     }
-}
-
-fn list_azure_openai_deployments(
-    resource: &str,
-    resource_group: &str,
-) -> Result<HashSet<String>, String> {
-    let output = run_azure_cli([
-        "cognitiveservices",
-        "account",
-        "deployment",
-        "list",
-        "-n",
-        resource,
-        "-g",
-        resource_group,
-        "--output",
-        "json",
-    ])?;
-    let deployments: Vec<AzureDeploymentSummary> = serde_json::from_slice(&output)
-        .map_err(|err| format!("failed to parse Azure deployment list JSON: {err}"))?;
-
-    Ok(openai_model_names(deployments))
 }
 
 fn openai_model_names(deployments: Vec<AzureDeploymentSummary>) -> HashSet<String> {
@@ -118,7 +109,7 @@ fn openai_model_names(deployments: Vec<AzureDeploymentSummary>) -> HashSet<Strin
         .collect()
 }
 
-fn run_azure_cli<const N: usize>(args: [&str; N]) -> Result<Vec<u8>, String> {
+pub fn run_azure_cli<const N: usize>(args: [&str; N]) -> Result<Vec<u8>, String> {
     let output = Command::new("az")
         .args(args)
         .output()
@@ -136,6 +127,18 @@ fn run_azure_cli<const N: usize>(args: [&str; N]) -> Result<Vec<u8>, String> {
     Err(format!("`az {}` failed: {detail}", args.join(" ")))
 }
 
+pub fn run_azure_cli_json<T, const N: usize>(
+    args: [&str; N],
+    description: &str,
+) -> Result<T, String>
+where
+    T: DeserializeOwned,
+{
+    let output = run_azure_cli(args)?;
+    serde_json::from_slice(&output)
+        .map_err(|err| format!("failed to parse {description} JSON: {err}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,9 +146,10 @@ mod tests {
 
     #[test]
     fn resource_name_is_inferred_from_cognitiveservices_url() {
-        let resource =
-            resource_name_from_base_url("https://example-resource.cognitiveservices.azure.com/openai")
-                .expect("resource should be inferred");
+        let resource = resource_name_from_base_url(
+            "https://example-resource.cognitiveservices.azure.com/openai",
+        )
+        .expect("resource should be inferred");
 
         assert_eq!(resource, "example-resource");
     }

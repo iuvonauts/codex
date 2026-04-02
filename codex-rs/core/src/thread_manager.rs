@@ -1,5 +1,4 @@
 use crate::ModelProviderInfo;
-use crate::OPENAI_PROVIDER_ID;
 use crate::SkillsManager;
 use crate::agent::AgentControl;
 use crate::azure_model_catalog::catalog_for_provider;
