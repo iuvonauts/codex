@@ -10,6 +10,7 @@ mod apply_patch;
 mod apps;
 mod arc_monitor;
 mod azure_auth;
+mod azure_model_catalog;
 mod auth_env_telemetry;
 mod client;
 mod client_common;

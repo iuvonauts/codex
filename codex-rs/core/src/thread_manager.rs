@@ -2,6 +2,7 @@ use crate::ModelProviderInfo;
 use crate::OPENAI_PROVIDER_ID;
 use crate::SkillsManager;
 use crate::agent::AgentControl;
+use crate::azure_model_catalog::catalog_for_provider;
 use crate::codex::Codex;
 use crate::codex::CodexSpawnArgs;
 use crate::codex::CodexSpawnOk;
@@ -221,11 +222,12 @@ impl ThreadManager {
     ) -> Self {
         let codex_home = config.codex_home.clone();
         let restriction_product = session_source.restriction_product();
-        let openai_models_provider = config
+        let models_provider = config
             .model_providers
-            .get(OPENAI_PROVIDER_ID)
+            .get(&config.model_provider_id)
             .cloned()
-            .unwrap_or_else(|| ModelProviderInfo::create_openai_provider(/*base_url*/ None));
+            .unwrap_or_else(|| config.model_provider.clone());
+        let model_catalog = catalog_for_provider(config.model_catalog.clone(), &models_provider);
         let (thread_created_tx, _) = broadcast::channel(THREAD_CREATED_CHANNEL_CAPACITY);
         let plugins_manager = Arc::new(PluginsManager::new_with_restriction_product(
             codex_home.clone(),
@@ -245,9 +247,9 @@ impl ThreadManager {
                 models_manager: Arc::new(ModelsManager::new_with_provider(
                     codex_home,
                     auth_manager.clone(),
-                    config.model_catalog.clone(),
+                    model_catalog,
                     collaboration_modes_config,
-                    openai_models_provider,
+                    models_provider,
                 )),
                 environment_manager,
                 skills_manager,
