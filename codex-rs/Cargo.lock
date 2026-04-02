@@ -1872,6 +1872,7 @@ dependencies = [
  "codex-terminal-detection",
  "codex-tools",
  "codex-utils-absolute-path",
+ "codex-utils-azure-catalog",
  "codex-utils-cache",
  "codex-utils-cargo-bin",
  "codex-utils-home-dir",
@@ -2793,6 +2794,16 @@ name = "codex-utils-approval-presets"
 version = "0.0.0"
 dependencies = [
  "codex-protocol",
+]
+
+[[package]]
+name = "codex-utils-azure-catalog"
+version = "0.0.0"
+dependencies = [
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "url",
 ]
 
 [[package]]
