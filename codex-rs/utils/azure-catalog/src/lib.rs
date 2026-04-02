@@ -144,18 +144,19 @@ mod tests {
     #[test]
     fn resource_name_is_inferred_from_cognitiveservices_url() {
         let resource =
-            resource_name_from_base_url("https://iuvobot.cognitiveservices.azure.com/openai")
+            resource_name_from_base_url("https://example-resource.cognitiveservices.azure.com/openai")
                 .expect("resource should be inferred");
 
-        assert_eq!(resource, "iuvobot");
+        assert_eq!(resource, "example-resource");
     }
 
     #[test]
     fn resource_name_is_inferred_from_openai_azure_url() {
-        let resource = resource_name_from_base_url("https://iuvobot.openai.azure.com/openai")
-            .expect("resource should be inferred");
+        let resource =
+            resource_name_from_base_url("https://example-resource.openai.azure.com/openai")
+                .expect("resource should be inferred");
 
-        assert_eq!(resource, "iuvobot");
+        assert_eq!(resource, "example-resource");
     }
 
     #[test]
@@ -172,9 +173,9 @@ mod tests {
     #[test]
     fn find_resource_group_matches_case_insensitively() {
         let resource_group = find_resource_group(
-            "iuvobot",
+            "example-resource",
             &[AzureAccountSummary {
-                name: "IuvoBot".to_string(),
+                name: "Example-Resource".to_string(),
                 resource_group: "rg-agents".to_string(),
             }],
         )
@@ -186,14 +187,14 @@ mod tests {
     #[test]
     fn find_resource_group_rejects_duplicates() {
         let err = find_resource_group(
-            "iuvobot",
+            "example-resource",
             &[
                 AzureAccountSummary {
-                    name: "iuvobot".to_string(),
+                    name: "example-resource".to_string(),
                     resource_group: "rg-a".to_string(),
                 },
                 AzureAccountSummary {
-                    name: "IuvoBot".to_string(),
+                    name: "Example-Resource".to_string(),
                     resource_group: "rg-b".to_string(),
                 },
             ],
@@ -202,7 +203,7 @@ mod tests {
 
         assert_eq!(
             err,
-            "found multiple Azure resources named `iuvobot`; select one manually instead"
+            "found multiple Azure resources named `example-resource`; select one manually instead"
         );
     }
 
