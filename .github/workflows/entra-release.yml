@@ -1,0 +1,155 @@
+# Entra fork release workflow.
+#
+# Triggers on every push to main (i.e., every merged PR).
+# Version is auto-detected from upstream releases and patched at
+# build time — never committed to the repo.
+
+name: entra-release
+
+on:
+  push:
+    branches: [main]
+    paths: [codex-rs/**]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Resolve version from upstream and prior entra releases
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          UPSTREAM_REPO="openai/codex"
+
+          # Get the upstream base version (latest alpha/pre-release base)
+          latest_alpha=$(gh release list --repo "$UPSTREAM_REPO" --limit 5 \
+            | head -1 \
+            | awk '{print $1}')
+          upstream_base=$(echo "$latest_alpha" \
+            | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+
+          # Fall back to latest stable if alpha parsing fails
+          if [[ -z "$upstream_base" ]]; then
+            upstream_base=$(gh release list --repo "$UPSTREAM_REPO" --limit 50 \
+              | grep -v Pre-release \
+              | head -1 \
+              | awk '{print $1}')
+          fi
+
+          if [[ -z "$upstream_base" ]]; then
+            echo "::error::Could not determine upstream version"
+            exit 1
+          fi
+
+          # Find the latest entra release for this upstream base to increment build number
+          last_entra=$(gh release list --limit 50 2>/dev/null \
+            | awk '{print $1}' \
+            | grep "^${upstream_base}-entra\." \
+            | head -1 || true)
+
+          if [[ -n "$last_entra" ]]; then
+            last_build=$(echo "$last_entra" | grep -oP 'entra\.\K[0-9]+')
+            build=$((last_build + 1))
+          else
+            build=1
+          fi
+
+          version="${upstream_base}-entra.${build}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $version (upstream base: $upstream_base)"
+
+  build:
+    needs: resolve-version
+    name: Build - ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+    defaults:
+      run:
+        working-directory: codex-rs
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Patch version at build time
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.resolve-version.outputs.version }}"
+          sed -i.bak "0,/^version = \".*\"/s//version = \"${version}\"/" Cargo.toml
+          rm -f Cargo.toml.bak
+          echo "Patched Cargo.toml to version $version"
+
+      - name: Build release binary
+        run: cargo build --release --bin codex
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: codex-${{ matrix.target }}
+          path: codex-rs/target/release/codex
+
+  release:
+    needs: [resolve-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Download artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          for dir in artifacts/codex-*/; do
+            target=$(basename "$dir")
+            cp "$dir/codex" "release/${target}"
+            chmod +x "release/${target}"
+          done
+          ls -la release/
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.resolve-version.outputs.version }}"
+          tag="entra-v${version}"
+
+          git tag -a "$tag" -m "Release ${version}"
+          git push origin "$tag"
+
+          gh release create "$tag" \
+            --title "$version" \
+            --generate-notes \
+            release/*
