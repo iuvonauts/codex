@@ -8,7 +8,6 @@
 mod apply_patch;
 mod apps;
 mod arc_monitor;
-mod azure_model_catalog;
 mod client;
 mod client_common;
 pub mod codex;

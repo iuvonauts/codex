@@ -1,6 +1,6 @@
 use crate::SkillsManager;
 use crate::agent::AgentControl;
-use crate::azure_model_catalog::catalog_for_provider;
+use codex_model_provider_info::azure_model_catalog::catalog_for_provider;
 use crate::codex::Codex;
 use crate::codex::CodexSpawnArgs;
 use crate::codex::CodexSpawnOk;
@@ -227,7 +227,9 @@ impl ThreadManager {
             .get(&config.model_provider_id)
             .cloned()
             .unwrap_or_else(|| config.model_provider.clone());
-        let model_catalog = catalog_for_provider(config.model_catalog.clone(), &models_provider);
+        let bundled_catalog = codex_models_manager::bundled_models_response().ok();
+        let model_catalog =
+            catalog_for_provider(config.model_catalog.clone(), bundled_catalog, &models_provider);
         let (thread_created_tx, _) = broadcast::channel(THREAD_CREATED_CHANNEL_CAPACITY);
         let plugins_manager = Arc::new(PluginsManager::new_with_restriction_product(
             codex_home.clone(),

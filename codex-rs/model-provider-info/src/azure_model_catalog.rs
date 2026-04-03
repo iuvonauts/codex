@@ -1,12 +1,18 @@
-use codex_model_provider_info::ModelProviderInfo;
+use crate::ModelProviderInfo;
 use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::ModelsResponse;
 use codex_utils_azure_catalog::resolve_openai_deployment_model_names_for_base_url;
 use std::collections::HashSet;
 use tracing::warn;
 
-pub(crate) fn catalog_for_provider(
+/// Returns a model catalog appropriate for the given provider.
+///
+/// When `configured_catalog` is already set, it is returned as-is. For Azure
+/// providers without an explicit catalog, the bundled catalog is filtered to
+/// only include models that are actually deployed on the Azure resource.
+pub fn catalog_for_provider(
     configured_catalog: Option<ModelsResponse>,
+    bundled_catalog: Option<ModelsResponse>,
     provider: &ModelProviderInfo,
 ) -> Option<ModelsResponse> {
     if configured_catalog.is_some() {
@@ -17,7 +23,15 @@ pub(crate) fn catalog_for_provider(
         return None;
     }
 
-    match resolve_azure_catalog(provider) {
+    let Some(bundled) = bundled_catalog else {
+        warn!(
+            provider = %provider.name,
+            "no bundled model catalog available for Azure filtering"
+        );
+        return None;
+    };
+
+    match resolve_azure_catalog(provider, bundled) {
         Ok(catalog) => Some(catalog),
         Err(err) => {
             warn!(
@@ -30,20 +44,17 @@ pub(crate) fn catalog_for_provider(
     }
 }
 
-fn resolve_azure_catalog(provider: &ModelProviderInfo) -> Result<ModelsResponse, String> {
+fn resolve_azure_catalog(
+    provider: &ModelProviderInfo,
+    bundled_catalog: ModelsResponse,
+) -> Result<ModelsResponse, String> {
     let base_url = provider
         .base_url
         .as_deref()
         .ok_or_else(|| "Azure provider is missing a base_url".to_string())?;
     let deployed_models = resolve_openai_deployment_model_names_for_base_url(base_url)?;
-    let bundled_catalog = bundled_catalog()?;
 
     Ok(apply_azure_availability(bundled_catalog, &deployed_models))
-}
-
-fn bundled_catalog() -> Result<ModelsResponse, String> {
-    serde_json::from_str(include_str!("../../models-manager/models.json"))
-        .map_err(|err| format!("failed to parse bundled models.json: {err}"))
 }
 
 fn apply_azure_availability(

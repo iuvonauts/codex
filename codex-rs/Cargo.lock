@@ -1883,7 +1883,6 @@ dependencies = [
  "codex-terminal-detection",
  "codex-tools",
  "codex-utils-absolute-path",
- "codex-utils-azure-catalog",
  "codex-utils-cache",
  "codex-utils-cargo-bin",
  "codex-utils-home-dir",
@@ -2363,6 +2362,7 @@ dependencies = [
  "serde",
  "tempfile",
  "toml 0.9.11+spec-1.1.0",
+ "tracing",
 ]
 
 [[package]]

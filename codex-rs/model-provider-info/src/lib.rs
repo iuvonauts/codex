@@ -6,6 +6,7 @@
 //!      key. These override or extend the defaults at runtime.
 
 mod azure_auth;
+pub mod azure_model_catalog;
 use azure_auth::azure_cli_bearer_token;
 use codex_api::Provider as ApiProvider;
 use codex_api::is_azure_responses_wire_base_url;
