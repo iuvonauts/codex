@@ -5,7 +5,11 @@
 //!   2. User-defined entries inside `~/.codex/config.toml` under the `model_providers`
 //!      key. These override or extend the defaults at runtime.
 
+mod azure_auth;
+pub mod azure_model_catalog;
+use azure_auth::azure_cli_bearer_token;
 use codex_api::Provider as ApiProvider;
+use codex_api::is_azure_responses_wire_base_url;
 use codex_api::provider::RetryConfig as ApiRetryConfig;
 use codex_app_server_protocol::AuthMode;
 use codex_protocol::config_types::ModelProviderAuthInfo;
@@ -151,6 +155,35 @@ impl ModelProviderInfo {
                 "provider auth cannot be combined with {}",
                 conflicts.join(", ")
             ))
+        }
+    }
+
+    pub fn configured_auth_token(&self) -> CodexResult<Option<String>> {
+        if self.has_command_auth() {
+            return Ok(None);
+        }
+
+        if let Some(env_key) = &self.env_key
+            && let Ok(token) = std::env::var(env_key)
+            && !token.trim().is_empty()
+        {
+            return Ok(Some(token));
+        }
+
+        if let Some(token) = self.experimental_bearer_token.clone() {
+            return Ok(Some(token));
+        }
+
+        if let Some(token) = azure_cli_bearer_token(self)? {
+            return Ok(Some(token));
+        }
+
+        match &self.env_key {
+            Some(env_key) => Err(CodexErr::EnvVar(EnvVarError {
+                var: env_key.clone(),
+                instructions: self.env_key_instructions.clone(),
+            })),
+            None => Ok(None),
         }
     }
 
@@ -302,6 +335,10 @@ impl ModelProviderInfo {
 
     pub fn has_command_auth(&self) -> bool {
         self.auth.is_some()
+    }
+
+    pub fn is_azure(&self) -> bool {
+        is_azure_responses_wire_base_url(&self.name, self.base_url.as_deref())
     }
 }
 

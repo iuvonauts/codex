@@ -68,6 +68,13 @@ same bundle. If the file is empty, unreadable, or malformed, the affected Codex
 HTTP or secure websocket connection reports a user-facing error that points
 back to these environment variables.
 
+## Azure providers
+
+For Azure OpenAI-compatible providers, Codex uses the configured API-key
+environment variable when it is set. If that variable is unset, Codex also
+tries `az account get-access-token --resource https://cognitiveservices.azure.com`
+and sends the resulting Microsoft Entra bearer token to the Azure endpoint.
+
 ## Notices
 
 Codex stores "do not show again" flags for some UI prompts under the `[notice]` table.

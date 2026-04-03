@@ -59,6 +59,7 @@ members = [
     "tools",
     "v8-poc",
     "utils/absolute-path",
+    "utils/azure-catalog",
     "utils/cargo-bin",
     "git-utils",
     "utils/cache",
@@ -164,6 +165,7 @@ codex-terminal-detection = { path = "terminal-detection" }
 codex-tools = { path = "tools" }
 codex-tui = { path = "tui" }
 codex-utils-absolute-path = { path = "utils/absolute-path" }
+codex-utils-azure-catalog = { path = "utils/azure-catalog" }
 codex-utils-approval-presets = { path = "utils/approval-presets" }
 codex-utils-cache = { path = "utils/cache" }
 codex-utils-cargo-bin = { path = "utils/cargo-bin" }
