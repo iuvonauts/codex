@@ -32,21 +32,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          UPSTREAM_REPO="openai/codex"
+          # Query upstream releases via public API (no auth needed for public repos)
+          upstream_releases=$(curl -sf \
+            "https://api.github.com/repos/openai/codex/releases?per_page=10")
 
-          # Get the upstream base version (latest alpha/pre-release base)
-          latest_alpha=$(gh release list --repo "$UPSTREAM_REPO" --limit 5 \
-            | head -1 \
-            | awk '{print $1}')
-          upstream_base=$(echo "$latest_alpha" \
-            | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          # Get the latest release tag (alpha or stable) and extract base version
+          latest_tag=$(echo "$upstream_releases" \
+            | jq -r '.[0].tag_name // empty')
+          upstream_base=$(echo "$latest_tag" \
+            | sed -E 's/^rust-v//; s/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
 
           # Fall back to latest stable if alpha parsing fails
           if [[ -z "$upstream_base" ]]; then
-            upstream_base=$(gh release list --repo "$UPSTREAM_REPO" --limit 50 \
-              | grep -v Pre-release \
-              | head -1 \
-              | awk '{print $1}')
+            upstream_base=$(echo "$upstream_releases" \
+              | jq -r '[.[] | select(.prerelease == false)][0].tag_name // empty' \
+              | sed -E 's/^rust-v//')
           fi
 
           if [[ -z "$upstream_base" ]]; then
