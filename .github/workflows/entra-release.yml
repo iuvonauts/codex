@@ -163,6 +163,8 @@ jobs:
           version="${{ needs.resolve-version.outputs.version }}"
           tag="entra-v${version}"
 
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$tag" -m "Release ${version}"
           git push origin "$tag"
 
