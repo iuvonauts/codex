@@ -1,7 +1,7 @@
 use crate::ModelProviderInfo;
-use crate::error::CodexErr;
-use crate::error::EnvVarError;
-use crate::error::Result;
+use codex_protocol::error::CodexErr;
+use codex_protocol::error::EnvVarError;
+use codex_protocol::error::Result;
 use codex_utils_azure_catalog::run_azure_cli_json;
 use serde::Deserialize;
 
@@ -64,6 +64,7 @@ fn azure_cli_auth_error(provider: &ModelProviderInfo, detail: String) -> CodexEr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::WireApi;
     use pretty_assertions::assert_eq;
 
     fn azure_provider() -> ModelProviderInfo {
@@ -74,7 +75,7 @@ mod tests {
             env_key_instructions: None,
             experimental_bearer_token: None,
             auth: None,
-            wire_api: crate::WireApi::Responses,
+            wire_api: WireApi::Responses,
             query_params: None,
             http_headers: None,
             env_http_headers: None,

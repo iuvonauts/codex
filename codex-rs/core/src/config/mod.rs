@@ -13,13 +13,6 @@ use crate::config_loader::ResidencyRequirement;
 use crate::config_loader::Sourced;
 use crate::config_loader::load_config_layers_state;
 use crate::memories::memory_root;
-use crate::model_provider_info::LEGACY_OLLAMA_CHAT_PROVIDER_ID;
-use crate::model_provider_info::LMSTUDIO_OSS_PROVIDER_ID;
-use crate::model_provider_info::ModelProviderInfo;
-use crate::model_provider_info::OLLAMA_CHAT_PROVIDER_REMOVED_ERROR;
-use crate::model_provider_info::OLLAMA_OSS_PROVIDER_ID;
-use crate::model_provider_info::OPENAI_PROVIDER_ID;
-use crate::model_provider_info::built_in_model_providers;
 use crate::path_utils::normalize_for_native_workdir;
 use crate::project_doc::DEFAULT_PROJECT_DOC_FILENAME;
 use crate::project_doc::LOCAL_PROJECT_DOC_FILENAME;
@@ -65,6 +58,14 @@ use codex_features::FeaturesToml;
 use codex_git_utils::resolve_root_git_project_for_trust;
 use codex_login::AuthCredentialsStoreMode;
 use codex_mcp::mcp::McpConfig;
+use codex_model_provider_info::LEGACY_OLLAMA_CHAT_PROVIDER_ID;
+use codex_model_provider_info::LMSTUDIO_OSS_PROVIDER_ID;
+use codex_model_provider_info::ModelProviderInfo;
+use codex_model_provider_info::OLLAMA_CHAT_PROVIDER_REMOVED_ERROR;
+use codex_model_provider_info::OLLAMA_OSS_PROVIDER_ID;
+use codex_model_provider_info::OPENAI_PROVIDER_ID;
+use codex_model_provider_info::built_in_model_providers;
+use codex_models_manager::ModelsManagerConfig;
 use codex_protocol::config_types::AltScreenMode;
 use codex_protocol::config_types::ForcedLoginMethod;
 use codex_protocol::config_types::Personality;
@@ -683,6 +684,18 @@ impl ConfigBuilder {
 }
 
 impl Config {
+    pub fn to_models_manager_config(&self) -> ModelsManagerConfig {
+        ModelsManagerConfig {
+            model_context_window: self.model_context_window,
+            model_auto_compact_token_limit: self.model_auto_compact_token_limit,
+            tool_output_token_limit: self.tool_output_token_limit,
+            base_instructions: self.base_instructions.clone(),
+            personality_enabled: self.features.enabled(Feature::Personality),
+            model_supports_reasoning_summaries: self.model_supports_reasoning_summaries,
+            model_catalog: self.model_catalog.clone(),
+        }
+    }
+
     pub fn to_mcp_config(&self, plugins_manager: &crate::plugins::PluginsManager) -> McpConfig {
         let loaded_plugins = plugins_manager.plugins_for_config(self);
         let mut configured_mcp_servers = self.mcp_servers.get().clone();

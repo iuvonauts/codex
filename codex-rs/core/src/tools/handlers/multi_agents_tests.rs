@@ -1,6 +1,5 @@
 use super::*;
 use crate::ThreadManager;
-use crate::built_in_model_providers;
 use crate::codex::make_session_and_context;
 use crate::config::DEFAULT_AGENT_MAX_DEPTH;
 use crate::function_tool::FunctionCallError;
@@ -20,6 +19,7 @@ use codex_config::types::ShellEnvironmentPolicy;
 use codex_features::Feature;
 use codex_login::AuthManager;
 use codex_login::CodexAuth;
+use codex_model_provider_info::built_in_model_providers;
 use codex_protocol::AgentPath;
 use codex_protocol::ThreadId;
 use codex_protocol::models::BaseInstructions;
@@ -115,7 +115,6 @@ fn history_contains_inter_agent_communication(
 #[derive(Clone, Copy)]
 struct NeverEndingTask;
 
-#[async_trait::async_trait]
 impl SessionTask for NeverEndingTask {
     fn kind(&self) -> TaskKind {
         TaskKind::Regular

@@ -1,4 +1,4 @@
-use crate::ModelProviderInfo;
+use codex_model_provider_info::ModelProviderInfo;
 use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::ModelsResponse;
 use codex_utils_azure_catalog::resolve_openai_deployment_model_names_for_base_url;
@@ -42,7 +42,7 @@ fn resolve_azure_catalog(provider: &ModelProviderInfo) -> Result<ModelsResponse,
 }
 
 fn bundled_catalog() -> Result<ModelsResponse, String> {
-    serde_json::from_str(include_str!("../models.json"))
+    serde_json::from_str(include_str!("../../models-manager/models.json"))
         .map_err(|err| format!("failed to parse bundled models.json: {err}"))
 }
 
